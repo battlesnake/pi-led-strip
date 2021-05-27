@@ -1,8 +1,11 @@
 #if 0
 set -xe
-trap 'rm -f led-animation' EXIT
 gcc *.c -O2 -march=native -mtune=native -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -flto -lm -s -o led-animation
-exec ./led-animation "$@"
+if test -n "$*"; then
+	exec ./led-animation "$@"
+else
+	exit 0
+fi
 #endif
 
 #include <stdio.h>
