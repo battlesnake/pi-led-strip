@@ -23,7 +23,7 @@ fi
 
 static volatile int quitting = 0;
 
-static void sigint_handler(int signo)
+static void exit_signal_handler(int signo)
 {
 	(void) signo;
 	quitting = 1;
@@ -106,8 +106,12 @@ invalid_arg:
 		}
 	}
 
-	if (signal(SIGINT, sigint_handler) == SIG_ERR) {
-		perror("signal(SIGINT)");
+	if (signal(SIGINT, exit_signal_handler) == SIG_ERR) {
+		perror("signal");
+	}
+
+	if (signal(SIGTERM, exit_signal_handler) == SIG_ERR) {
+		perror("signal");
 	}
 
 	/* Create LED driver */
