@@ -8,7 +8,7 @@
 
 static const float brightness_time_wavelength = -0.4f;
 static const float brightness_space_wavelength = 700.f;
-static const float hue_time_wavelength = 0.5f;
+static const float hue_time_wavelength = 1.0f;
 static const float hue_space_wavelength = 1000.f;
 
 struct rainbow_pulse *rainbow_pulse_init(size_t num_leds, struct led *leds)
@@ -49,8 +49,8 @@ void rainbow_pulse_run(struct rainbow_pulse *this)
 		led->brightness = 1;
 		struct hsv hsv = {
 			.h = sinf(
-					this->h_time_phase +
-					space / hue_space_wavelength),
+					this->h_time_phase) +
+					space / hue_space_wavelength,
 			.s = 1 - expf(
 					-800 * (sinf(
 							this->s_time_phase +
