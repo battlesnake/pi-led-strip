@@ -1,8 +1,8 @@
 #if 0
 set -xe
-trap 'rm -f ~/led-animation' EXIT
-gcc *.c -O2 -march=native -mtune=native -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -flto -lm -s -o ~/led-animation
-exec ~/led-animation "$@"
+trap 'rm -f led-animation' EXIT
+gcc *.c -O2 -march=native -mtune=native -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -flto -lm -s -o led-animation
+exec ./led-animation "$@"
 #endif
 
 #include <stdio.h>
@@ -14,12 +14,9 @@ exec ~/led-animation "$@"
 #include <getopt.h>
 
 #include "sk9822.h"
-#include "timing.h"
 #include "rainbow_pulse.h"
 #include "launch.h"
 #include "particles.h"
-
-#define case_fallthrough __attribute__ ((fallthrough))
 
 static volatile int quitting = 0;
 
@@ -49,12 +46,13 @@ int main(int argc, char *argv[])
 	enum animation animation_to_run = RAINBOW_PULSE;
 	enum protocol protocol = APA102;
 	const char *device = "/dev/spidev0.0";
-	int device_speed = 10000000;
-	int num_leds = 300;
+	int device_speed = 1000000;
+	int num_leds = 288;
+	int time_step_us = 10000;
 
 	/* Parse arguments */
 	int opt;
-	while ((opt = getopt(argc, argv, "hd:s:l:a:p:")) != -1) {
+	while ((opt = getopt(argc, argv, "hd:s:l:a:p:t:")) != -1) {
 		switch (opt) {
 		case 'd':
 			device = optarg;
@@ -85,14 +83,22 @@ int main(int argc, char *argv[])
 				goto invalid_arg;
 			}
 			break;
+		case 't':
+			time_step_us = atof(optarg) * 1000;
+			break;
 		case '?':
-			case_fallthrough;
 		default:
 invalid_arg:
 			fprintf(stderr, "Invalid argument\n");
-			case_fallthrough;
 		case 'h':
-			fprintf(stderr, "Syntax: %s [-d device] [-s device_speed] [-l num_leds] [-a { rainbow_pulse | launch | particles } ] [-p { apa102 | sk9822 } ]\n", argv[0]);
+			fprintf(stderr, "Syntax: %s"
+					"\n\t [-d device]"
+					"\n\t [-s device_speed]"
+					"\n\t [-l num_leds]"
+					"\n\t [-a { rainbow_pulse | launch | particles } ]"
+					"\n\t [-p { apa102 | sk9822 } ]"
+					"\n\t [ -t time_step_ms ]"
+					"\n", argv[0]);
 			goto fail_args;
 		}
 	}
@@ -120,13 +126,6 @@ invalid_arg:
 		goto fail_led;
 	}
 
-	/* Create timer */
-	struct timing timing;
-	if (timing_init(&timing) != 0) {
-		perror("timing_init");
-		goto fail_timing;
-	}
-
 	/* Create animation engine */
 	void *animation_state;
 	int (*animation_update)(void *);
@@ -134,7 +133,7 @@ invalid_arg:
 	if (animation_to_run == RAINBOW_PULSE) {
 		animation_update = (void *) rainbow_pulse_run;
 		animation_free = (void *) rainbow_pulse_free;
-		animation_state = rainbow_pulse_init(num_leds, leds, &timing);
+		animation_state = rainbow_pulse_init(num_leds, leds);
 		if (!animation_state) {
 			perror("rainbow_pulse_init");
 			goto fail_animation;
@@ -142,7 +141,7 @@ invalid_arg:
 	} else if (animation_to_run == LAUNCH) {
 		animation_update = (void *) launch_run;
 		animation_free = (void *) launch_free;
-		animation_state = launch_init(num_leds, leds, &timing);
+		animation_state = launch_init(num_leds, leds);
 		if (!animation_state) {
 			perror("launch_init");
 			goto fail_animation;
@@ -150,7 +149,7 @@ invalid_arg:
 	} else if (animation_to_run == PARTICLES) {
 		animation_update = (void *) particles_run;
 		animation_free = (void *) particles_free;
-		animation_state = particles_init(num_leds, leds, &timing,
+		animation_state = particles_init(num_leds, leds,
 				8, /* #particles */
 				30, 50, /* velocity */
 				1, 5); /* size */
@@ -170,7 +169,7 @@ invalid_arg:
 			perror("led_update");
 			goto fail_run;
 		}
-		usleep(1000);
+		usleep(time_step_us);
 	}
 
 	/* Clear LEDs */
@@ -188,9 +187,7 @@ invalid_arg:
 fail_run:
 	animation_free(animation_state);
 fail_animation:
-	timing_free(&timing);
-fail_timing:
-	led_free(&led_state);
+	led_free(led_state);
 fail_led:
 fail_args:
 	return ret;

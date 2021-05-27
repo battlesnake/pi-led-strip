@@ -3,9 +3,9 @@
 
 struct timing
 {
-	struct timespec start;
+	struct timespec prev;
 };
 
 int timing_init(struct timing *this);
-double timing_get(struct timing *this);
-void timing_free(struct timing *this);
+double timing_get(const struct timing *this);
+float timing_step(struct timing *this);
