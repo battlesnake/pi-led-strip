@@ -1,0 +1,8 @@
+[Service]
+Type=simple
+Environment=PATH=./:/usr/bin:/bin
+ExecStartPre=/bin/env make sysinit build
+ExecStart=/bin/env ./led-animation -m -b 1 -a particles
+
+[Install]
+WantedBy=basic.target

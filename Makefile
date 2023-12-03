@@ -9,7 +9,7 @@ ldflags := -O2 -Wall -Wextra -Werror -Wl,--gc-sections -flto -s
 
 libs := m
 
-.PHONY: default build clean sysinit
+.PHONY: default build clean sysinit install
 
 default: build
 
@@ -27,5 +27,15 @@ $(program): $(objects)
 
 %.o: %.c
 	$(CC) $(cflags) -MMD -o $@ $<
+
+install:
+	while read -r line; do \
+		printf -- "%s\n" "$$line"; \
+		if printf "%s" "$$line" | grep -sq ^Type=; then \
+			printf -- "%s=%s\n" "WorkingDirectory" "$(CURDIR)"; \
+		fi; \
+	done < leds.service | sudo tee /etc/systemd/system/leds.service
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now leds.service
 
 -include: $(wildcard *.d)
