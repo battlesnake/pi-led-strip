@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	enum protocol protocol = APA102;
 	const char *device = "/dev/spidev0.0";
 	int device_speed = 1000000;
-	int num_leds = 288;
+	int real_num_leds = 288;
 	int time_step_us = 10000;
 	bool mirror = false;
 	float brightness = 1;
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 			device_speed = atoi(optarg);
 			break;
 		case 'l':
-			num_leds = atoi(optarg);
+			real_num_leds = atoi(optarg);
 			break;
 		case 'a':
 			if (strcasecmp(optarg, "rainbow_pulse") == 0) {
@@ -99,7 +99,7 @@ help:
 			fprintf(stderr, "Syntax: %s"
 					"\n\t [ -d device ]"
 					"\n\t [ -s device_speed ]"
-					"\n\t [ -l num_leds ]"
+					"\n\t [ -l effective_num_leds ]"
 					"\n\t [ -a { rainbow_pulse | launch | particles } ]"
 					"\n\t [ -p { apa102 | sk9822 } ]"
 					"\n\t [ -t time_step_ms ]"
@@ -118,9 +118,9 @@ help:
 		perror("signal");
 	}
 
-	int real_num_leds = num_leds;
+	int effective_num_leds = real_num_leds;
 	if (mirror) {
-		num_leds /= 2;
+		effective_num_leds /= 2;
 	}
 
 	/* Create LED driver */
@@ -149,7 +149,7 @@ help:
 	if (animation_to_run == RAINBOW_PULSE) {
 		animation_update = (void *) rainbow_pulse_run;
 		animation_free = (void *) rainbow_pulse_free;
-		animation_state = rainbow_pulse_init(num_leds, leds);
+		animation_state = rainbow_pulse_init(effective_num_leds, leds);
 		if (!animation_state) {
 			perror("rainbow_pulse_init");
 			goto fail_animation;
@@ -157,7 +157,7 @@ help:
 	} else if (animation_to_run == LAUNCH) {
 		animation_update = (void *) launch_run;
 		animation_free = (void *) launch_free;
-		animation_state = launch_init(num_leds, leds);
+		animation_state = launch_init(effective_num_leds, leds);
 		if (!animation_state) {
 			perror("launch_init");
 			goto fail_animation;
@@ -165,7 +165,7 @@ help:
 	} else if (animation_to_run == PARTICLES) {
 		animation_update = (void *) particles_run;
 		animation_free = (void *) particles_free;
-		animation_state = particles_init(num_leds, leds,
+		animation_state = particles_init(effective_num_leds, leds,
 				8, /* #particles */
 				30, 50, /* velocity */
 				1, 5); /* size */
@@ -195,7 +195,18 @@ help:
 	}
 
 	/* Clear LEDs */
-	for (int i = 0; i < num_leds; ++i) {
+	fprintf(stderr, "Clearing LEDs\n");
+	for (int it = 0; it < 25; ++it) {
+		for (int i = 0; i < real_num_leds; ++i) {
+			leds[i].brightness *= 0.7;
+		}
+		if (led_update(led_state) != 0) {
+			perror("led_update");
+			goto fail_run;
+		}
+		usleep(time_step_us);
+	}
+	for (int i = 0; i < real_num_leds; ++i) {
 		leds[i] = LED_INIT;
 	}
 	if (led_update(led_state) != 0) {
