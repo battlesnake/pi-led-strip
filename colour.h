@@ -18,5 +18,5 @@ void hsv2rgb(const struct hsv *hsv, struct rgb *rgb);
 
 void rgb_add(struct rgb *a, const struct rgb *b, float amount);
 
-const struct rgb black;
-const struct rgb white;
+extern const struct rgb black;
+extern const struct rgb white;

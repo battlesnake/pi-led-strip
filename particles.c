@@ -12,7 +12,9 @@
 
 static float rand_range(float min, float max)
 {
-	return interp2f(min, max, rand(), 0, RAND_MAX);
+	const int rm = 0x7fffffffl;
+	int r = rand() & rm;
+	return interp2f(min, max, r, 0, rm);
 }
 
 static float calc_energy(const struct particles *this)

@@ -1,13 +1,3 @@
-#if 0
-set -xe
-gcc *.c -O2 -march=native -mtune=native -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Wl,--gc-sections -flto -lm -s -o led-animation
-if test -n "$*"; then
-	exec ./led-animation "$@"
-else
-	exit 0
-fi
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,7 +83,9 @@ int main(int argc, char *argv[])
 		default:
 invalid_arg:
 			fprintf(stderr, "Invalid argument\n");
+			goto help;
 		case 'h':
+help:
 			fprintf(stderr, "Syntax: %s"
 					"\n\t [-d device]"
 					"\n\t [-s device_speed]"

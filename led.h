@@ -9,4 +9,4 @@ struct led
 	struct rgb colour;
 };
 
-const struct led LED_INIT;
+extern const struct led LED_INIT;
