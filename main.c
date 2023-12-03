@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include <unistd.h>
@@ -10,6 +11,7 @@
 #include "rainbow_pulse.h"
 #include "launch.h"
 #include "particles.h"
+#include "mirror.h"
 
 static volatile int quitting = 0;
 
@@ -42,10 +44,12 @@ int main(int argc, char *argv[])
 	int device_speed = 1000000;
 	int num_leds = 288;
 	int time_step_us = 10000;
+	bool mirror = false;
+	float brightness = 1;
 
 	/* Parse arguments */
 	int opt;
-	while ((opt = getopt(argc, argv, "hd:s:l:a:p:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "hd:s:l:a:p:t:mb:")) != -1) {
 		switch (opt) {
 		case 'd':
 			device = optarg;
@@ -79,6 +83,12 @@ int main(int argc, char *argv[])
 		case 't':
 			time_step_us = atof(optarg) * 1000;
 			break;
+		case 'm':
+			mirror = true;
+			break;
+		case 'b':
+			brightness = atof(optarg);
+			break;
 		case '?':
 		default:
 invalid_arg:
@@ -87,12 +97,14 @@ invalid_arg:
 		case 'h':
 help:
 			fprintf(stderr, "Syntax: %s"
-					"\n\t [-d device]"
-					"\n\t [-s device_speed]"
-					"\n\t [-l num_leds]"
-					"\n\t [-a { rainbow_pulse | launch | particles } ]"
-					"\n\t [-p { apa102 | sk9822 } ]"
+					"\n\t [ -d device ]"
+					"\n\t [ -s device_speed ]"
+					"\n\t [ -l num_leds ]"
+					"\n\t [ -a { rainbow_pulse | launch | particles } ]"
+					"\n\t [ -p { apa102 | sk9822 } ]"
 					"\n\t [ -t time_step_ms ]"
+					"\n\t [ -m ]  <--mirror"
+					"\n\t [ -b brightness ]"
 					"\n", argv[0]);
 			goto fail_args;
 		}
@@ -106,6 +118,11 @@ help:
 		perror("signal");
 	}
 
+	int real_num_leds = num_leds;
+	if (mirror) {
+		num_leds /= 2;
+	}
+
 	/* Create LED driver */
 	void *led_state;
 	int (*led_update)(void *);
@@ -114,7 +131,7 @@ help:
 	if (protocol == APA102 || protocol == SK9822) {
 		led_update = (void *) sk9822_update;
 		led_free = (void *) sk9822_free;
-		led_state = sk9822_init(device, device_speed, num_leds);
+		led_state = sk9822_init(device, device_speed, real_num_leds);
 		if (!led_state) {
 			perror("sk9822_init");
 			goto fail_led;
@@ -164,6 +181,12 @@ help:
 	/* Main loop */
 	while (!quitting) {
 		animation_update(animation_state);
+		if (mirror) {
+			mirror_leds(real_num_leds, leds);
+		}
+		for (struct led *led = leds, *out = leds + real_num_leds; led != out; ++led) {
+			led->brightness *= brightness;
+		}
 		if (led_update(led_state) != 0) {
 			perror("led_update");
 			goto fail_run;
